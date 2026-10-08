@@ -1,0 +1,33 @@
+# Nom du workflow, affiché dans l'onglet Actions et sur la PR
+name: CI
+
+# Quand le workflow se déclenche
+on:
+  pull_request:          # à chaque PR qui vise main (et à chaque nouveau commit dans la PR)
+    branches: [main]
+  push:                  # à chaque push direct sur main (par exemple après un merge)
+    branches: [main]
+
+jobs:
+  test:                          # nom du job
+    runs-on: ubuntu-latest       # VM Ubuntu neuve fournie par GitHub
+
+    steps:
+      # 1. La VM est vide : on y clone le dépôt
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. On installe Node, dans la version écrite dans .nvmrc
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # 3. On installe les dépendances exactes du package-lock.json
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. On lance les tests. Code de sortie différent de 0 = job en échec
+      - name: Run tests
+        run: npm test
