@@ -35,6 +35,9 @@ jobs:
   build:                         # 2e job : construit et teste l'image Docker
     needs: test                  # ne démarre que si le job "test" a réussi
     runs-on: ubuntu-latest       # une autre VM neuve, indépendante de celle de "test"
+    permissions:                 # droits du jeton GITHUB_TOKEN pour ce job
+      contents: read             # lire le code du dépôt (pour le checkout)
+      packages: write            # pour push de l'image Docker vers GitHub Packages(publier des images sur ghcr.io)
 
     steps:
       # 1. Nouvelle VM, donc on clone à nouveau le dépôt
@@ -59,8 +62,23 @@ jobs:
           curl -fsS -X POST -H 'Content-Type: application/json' \
                -d '{"name":"ci smoke test"}' localhost:3000/items
           curl -fsS localhost:3000/items | grep "ci smoke test"
+      
+      # 5. Connexion au registre (uniquement après un merge sur main)
+      - name: Log in to ghcr.io
+        if: github.event_name == 'push'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
-      # 5. On affiche toujours les logs, même si une étape précédente a échoué
+      # 6. On publie l'image testée, avec deux tags
+      - name: Tag and push image
+        if: github.event_name == 'push'
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}
+          docker tag todo-app:ci "$IMAGE:${{ github.sha }}"
+          docker tag todo-app:ci "$IMAGE:main"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:main"
+      
+      # 7. On affiche toujours les logs, même si une étape précédente a échoué
       - name: Show container logs
         if: always()
         run: docker logs todo
