@@ -31,3 +31,36 @@ jobs:
       # 4. On lance les tests. Code de sortie différent de 0 = job en échec
       - name: Run tests
         run: npm test
+
+  build:                         # 2e job : construit et teste l'image Docker
+    needs: test                  # ne démarre que si le job "test" a réussi
+    runs-on: ubuntu-latest       # une autre VM neuve, indépendante de celle de "test"
+
+    steps:
+      # 1. Nouvelle VM, donc on clone à nouveau le dépôt
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. On construit l'image avec le Dockerfile (pas besoin de Node sur la VM)
+      - name: Build Docker image
+        run: docker build -t todo-app:ci .
+
+      # 3. On lance un conteneur à partir de cette image
+      - name: Start container
+        run: docker run -d --name todo -p 3000:3000 todo-app:ci
+
+      # 4. On vérifie que l'app lit ET écrit (leçon du SQLITE_READONLY)
+      - name: Smoke test (read and write)
+        run: |
+          for i in $(seq 1 10); do
+            curl -fsS localhost:3000/items && break
+            sleep 1
+          done
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+               -d '{"name":"ci smoke test"}' localhost:3000/items
+          curl -fsS localhost:3000/items | grep "ci smoke test"
+
+      # 5. On affiche toujours les logs, même si une étape précédente a échoué
+      - name: Show container logs
+        if: always()
+        run: docker logs todo
