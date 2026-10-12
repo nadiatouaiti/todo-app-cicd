@@ -1,0 +1,17 @@
+name: Runner check
+
+on:
+  workflow_dispatch:            # lancement manuel, depuis l'onglet Actions
+
+jobs:
+  check:
+    runs-on: [self-hosted, staging]   # le runner doit avoir CES DEUX labels
+
+    steps:
+      - name: Where am I?
+        run: |
+          echo "Host:    $(hostname)"
+          echo "User:    $(whoami)"
+          echo "Workdir: $(pwd)"
+          docker version --format 'Docker server: {{.Server.Version}}'
+          docker ps
