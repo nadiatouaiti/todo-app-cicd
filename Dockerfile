@@ -11,7 +11,6 @@ RUN npm ci --omit=dev
 COPY src ./src
 
 # 3. A data folder owned by the non-root user, then switch to that user
-RUN mkdir -p /etc/todos && chown node:node /etc/todos
 USER node
 
 EXPOSE 3000
