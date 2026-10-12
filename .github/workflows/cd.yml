@@ -1,0 +1,53 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]            # le "name:" exact de ci.yml
+    types: [completed]         # quand CI se termine (succès OU échec)
+    branches: [main]           # seulement les runs CI de la branche main
+
+concurrency:
+  group: deploy-staging        # un seul déploiement à la fois sur staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    # on ne déploie que si CI a RÉUSSI, et seulement après un vrai push sur main
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, staging]
+    environment:
+      name: staging
+      url: http://10.176.155.62:3000
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      # 1. Récupérer l'image exacte du commit testé par CI
+      - name: Pull image
+        run: docker pull "$IMAGE"
+
+      # 2. Remplacer l'ancien conteneur, en gardant les données
+      - name: Replace container
+        run: |
+          docker rm -f todo || true
+          docker run -d --name todo \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            -v todo-db:/etc/todos \
+            "$IMAGE"
+
+      # 3. Vérifier que la nouvelle version répond
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 15); do
+            if curl -fsS localhost:3000/items > /dev/null; then
+              echo "App is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not respond in 30s"
+          docker logs todo
+          exit 1
