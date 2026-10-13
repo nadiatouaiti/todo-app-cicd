@@ -16,7 +16,7 @@ jobs:
       name: staging
       url: http://10.176.155.62:3000
     concurrency:
-      group: deploy-staging        # un seul déploiement à la fois sur staging
+      group: deploy-staging
       cancel-in-progress: false
     env:
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
@@ -25,12 +25,19 @@ jobs:
       - name: Checkout scripts
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}   # même commit que l'image
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Record current image (for rollback)
+        run: |
+          PREVIOUS=$(docker inspect --format '{{.Config.Image}}' todo 2>/dev/null || true)
+          echo "Current image: ${PREVIOUS:-<none>}"
+          echo "PREVIOUS_IMAGE=$PREVIOUS" >> "$GITHUB_ENV"
 
       - name: Pull image
         run: docker pull "$IMAGE"
 
       - name: Replace container
+        id: replace
         run: |
           docker rm -f todo || true
           docker run -d --name todo \
@@ -40,19 +47,43 @@ jobs:
             "$IMAGE"
 
       - name: Wait for container to be healthy
-        run: ./scripts/wait-healthy.sh todo
+        env:
+          SIMULATE_FAILURE: ${{ vars.SIMULATE_DEPLOY_FAILURE }}
+        run: |
+          if [ "$SIMULATE_FAILURE" = "true" ]; then
+            echo "::warning::Simulated deployment failure (SIMULATE_DEPLOY_FAILURE=true)"
+            exit 1
+          fi
+          ./scripts/wait-healthy.sh todo
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
+
+      - name: Rollback to previous image
+        if: >-
+          failure() &&
+          steps.replace.outcome != 'skipped' &&
+          env.PREVIOUS_IMAGE != '' &&
+          env.PREVIOUS_IMAGE != env.IMAGE
+        run: |
+          echo "::warning::Deployment of $IMAGE failed, rolling back to $PREVIOUS_IMAGE"
+          docker rm -f todo || true
+          docker run -d --name todo \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            -v todo-db:/etc/todos \
+            "$PREVIOUS_IMAGE"
+          ./scripts/wait-healthy.sh todo
+          echo "Rollback OK: $PREVIOUS_IMAGE is running and healthy"
 
   deploy-production:
-    needs: deploy-staging          # seulement si staging a réussi
-    runs-on: [self-hosted, prod]   # le label du runner de la VM prod
+    needs: deploy-staging
+    runs-on: [self-hosted, prod]
     environment:
-      name: production             # l'environnement protégé : attend ton approbation
+      name: production
       url: http://10.176.155.192:3000
     concurrency:
-      group: deploy-production     # un seul déploiement à la fois en production
+      group: deploy-production
       cancel-in-progress: false
     env:
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
@@ -61,12 +92,19 @@ jobs:
       - name: Checkout scripts
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}   # même commit que l'image
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Record current image (for rollback)
+        run: |
+          PREVIOUS=$(docker inspect --format '{{.Config.Image}}' todo 2>/dev/null || true)
+          echo "Current image: ${PREVIOUS:-<none>}"
+          echo "PREVIOUS_IMAGE=$PREVIOUS" >> "$GITHUB_ENV"
 
       - name: Pull image
         run: docker pull "$IMAGE"
 
       - name: Replace container
+        id: replace
         run: |
           docker rm -f todo || true
           docker run -d --name todo \
@@ -80,3 +118,20 @@ jobs:
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
+
+      - name: Rollback to previous image
+        if: >-
+          failure() &&
+          steps.replace.outcome != 'skipped' &&
+          env.PREVIOUS_IMAGE != '' &&
+          env.PREVIOUS_IMAGE != env.IMAGE
+        run: |
+          echo "::warning::Deployment of $IMAGE failed, rolling back to $PREVIOUS_IMAGE"
+          docker rm -f todo || true
+          docker run -d --name todo \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            -v todo-db:/etc/todos \
+            "$PREVIOUS_IMAGE"
+          ./scripts/wait-healthy.sh todo
+          echo "Rollback OK: $PREVIOUS_IMAGE is running and healthy"
