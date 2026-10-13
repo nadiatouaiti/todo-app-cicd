@@ -54,23 +54,7 @@ jobs:
 
       # 4. On vérifie que l'app lit ET écrit (leçon du SQLITE_READONLY)
       - name: Wait for container to be healthy
-        run: |
-          for i in $(seq 1 20); do
-            if [ "$(docker inspect --format '{{.State.Running}}' todo)" != "true" ]; then
-              echo "Container is not running (crashed)"
-              break
-            fi
-            STATUS=$(docker inspect --format '{{.State.Health.Status}}' todo)
-            echo "Attempt $i/20: $STATUS"
-            case "$STATUS" in
-              healthy)   exit 0 ;;
-              unhealthy) break ;;
-            esac
-            sleep 3
-          done
-          echo "::error::Container did not become healthy"
-          docker inspect --format '{{json .State.Health}}' todo || true
-          exit 1
+        run: ./scripts/wait-healthy.sh todo
 
       - name: Smoke test (read and write)
         run: |
