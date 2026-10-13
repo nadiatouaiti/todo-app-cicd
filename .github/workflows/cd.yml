@@ -22,6 +22,11 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
 
     steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}   # même commit que l'image
+
       - name: Pull image
         run: docker pull "$IMAGE"
 
@@ -35,24 +40,7 @@ jobs:
             "$IMAGE"
 
       - name: Wait for container to be healthy
-        run: |
-          for i in $(seq 1 20); do
-            if [ "$(docker inspect --format '{{.State.Running}}' todo)" != "true" ]; then
-              echo "Container is not running (crashed)"
-              break
-            fi
-            STATUS=$(docker inspect --format '{{.State.Health.Status}}' todo)
-            echo "Attempt $i/20: $STATUS"
-            case "$STATUS" in
-              healthy)   exit 0 ;;
-              unhealthy) break ;;
-            esac
-            sleep 3
-          done
-          echo "::error::Container did not become healthy"
-          docker inspect --format '{{json .State.Health}}' todo || true
-          docker logs --tail 50 todo || true
-          exit 1
+        run: ./scripts/wait-healthy.sh todo
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
@@ -70,6 +58,11 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
 
     steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}   # même commit que l'image
+
       - name: Pull image
         run: docker pull "$IMAGE"
 
@@ -83,24 +76,7 @@ jobs:
             "$IMAGE"
 
       - name: Wait for container to be healthy
-        run: |
-          for i in $(seq 1 20); do
-            if [ "$(docker inspect --format '{{.State.Running}}' todo)" != "true" ]; then
-              echo "Container is not running (crashed)"
-              break
-            fi
-            STATUS=$(docker inspect --format '{{.State.Health.Status}}' todo)
-            echo "Attempt $i/20: $STATUS"
-            case "$STATUS" in
-              healthy)   exit 0 ;;
-              unhealthy) break ;;
-            esac
-            sleep 3
-          done
-          echo "::error::Container did not become healthy"
-          docker inspect --format '{{json .State.Health}}' todo || true
-          docker logs --tail 50 todo || true
-          exit 1
+        run: ./scripts/wait-healthy.sh todo
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
