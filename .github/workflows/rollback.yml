@@ -1,0 +1,64 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environnement cible"
+        type: choice
+        options: [staging, production]
+        required: true
+      sha:
+        description: "SHA complet (40 caractères) de la version à redéployer"
+        type: string
+        required: true
+
+# Titre du run dans l'onglet Actions : on voit tout de suite quoi, où, et qui
+run-name: "Rollback ${{ inputs.environment }} → ${{ inputs.sha }} (par ${{ github.actor }})"
+
+jobs:
+  rollback:
+    runs-on: [self-hosted, "${{ inputs.environment == 'production' && 'prod' || 'staging' }}"]
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.environment == 'production' && 'http://10.176.155.192:3000' || 'http://10.176.155.62:3000' }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}   # même groupe que cd.yml
+      cancel-in-progress: false
+    env:
+      TARGET_SHA: ${{ inputs.sha }}             # entrée utilisateur passée par env, jamais en direct dans run:
+
+    steps:
+      - name: Validate SHA format
+        run: |
+          if ! [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Invalid SHA '$TARGET_SHA' (expected 40 lowercase hex characters)"
+            exit 1
+          fi
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY}:${TARGET_SHA}" >> "$GITHUB_ENV"
+
+      - name: Checkout scripts (current main)
+        uses: actions/checkout@v4
+
+      - name: Show current image
+        run: |
+          echo "Currently running: $(docker inspect --format '{{.Config.Image}}' todo 2>/dev/null || echo '<none>')"
+          echo "Rolling back to:   $IMAGE"
+
+      - name: Pull image
+        run: docker pull "$IMAGE"
+
+      - name: Replace container
+        run: |
+          docker rm -f todo || true
+          docker run -d --name todo \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            -v todo-db:/etc/todos \
+            "$IMAGE"
+
+      - name: Wait for container to be healthy
+        run: ./scripts/wait-healthy.sh todo
+
+      - name: Check from host (port mapping)
+        run: curl -fsS localhost:3000/health
