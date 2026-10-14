@@ -10,16 +10,16 @@ on:
 
 jobs:
   test:                          # nom du job
-    runs-on: ubuntu-latest       # VM Ubuntu neuve fournie par GitHub
+    runs-on: ubuntu-24.04       # VM Ubuntu neuve fournie par GitHub
 
     steps:
       # 1. La VM est vide : on y clone le dépôt
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 2. On installe Node, dans la version écrite dans .nvmrc
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -34,7 +34,7 @@ jobs:
 
   build:                         # 2e job : construit et teste l'image Docker
     needs: test                  # ne démarre que si le job "test" a réussi
-    runs-on: ubuntu-latest       # une autre VM neuve, indépendante de celle de "test"
+    runs-on: ubuntu-24.04       # une autre VM neuve, indépendante de celle de "test"
     permissions:                 # droits du jeton GITHUB_TOKEN pour ce job
       contents: read             # lire le code du dépôt (pour le checkout)
       packages: write            # pour push de l'image Docker vers GitHub Packages(publier des images sur ghcr.io)
@@ -42,7 +42,7 @@ jobs:
     steps:
       # 1. Nouvelle VM, donc on clone à nouveau le dépôt
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 2. On construit l'image avec le Dockerfile (pas besoin de Node sur la VM)
       - name: Build Docker image

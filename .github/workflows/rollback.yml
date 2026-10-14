@@ -38,7 +38,7 @@ jobs:
           echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY}:${TARGET_SHA}" >> "$GITHUB_ENV"
 
       - name: Checkout scripts (current main)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show current image
         run: |
