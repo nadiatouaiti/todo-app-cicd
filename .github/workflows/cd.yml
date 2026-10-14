@@ -59,6 +59,10 @@ jobs:
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
 
+      - name: Clean up old images
+        continue-on-error: true
+        run: ./scripts/cleanup-images.sh "ghcr.io/${GITHUB_REPOSITORY}" "$IMAGE" "$PREVIOUS_IMAGE"
+
       - name: Rollback to previous image
         if: >-
           failure() &&
@@ -118,6 +122,10 @@ jobs:
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
+
+      - name: Clean up old images
+        continue-on-error: true
+        run: ./scripts/cleanup-images.sh "ghcr.io/${GITHUB_REPOSITORY}" "$IMAGE" "$PREVIOUS_IMAGE"
 
       - name: Rollback to previous image
         if: >-
