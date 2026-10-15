@@ -13,7 +13,7 @@ Built as a hands-on DevOps project to practise every step end to end.
 ## Pipeline
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[Pull request] --> B[CI: tests, build,<br/>smoke test]
     B -->|squash merge| C[main]
     C --> D[CI: build and push<br/>ghcr.io:sha]
