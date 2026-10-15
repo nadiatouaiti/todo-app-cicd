@@ -7,6 +7,8 @@ on:
     branches: [main]
   push:                  # à chaque push direct sur main (par exemple après un merge)
     branches: [main]
+    paths-ignore:
+      - '**.md'          # on ignore les changements de fichiers Markdown
 
 jobs:
   test:                          # nom du job
