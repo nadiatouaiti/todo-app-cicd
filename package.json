@@ -3,28 +3,19 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
-"scripts": {
-  "dev": "nodemon -L src/index.js",
-  "test": "SQLITE_DB_LOCATION=/tmp/todos-test/todo.db jest"
+  "scripts": {
+    "dev": "nodemon -L src/index.js",
+    "test": "SQLITE_DB_LOCATION=/tmp/todos-test/todo.db jest"
   },
   "dependencies": {
     "express": "^5.2.1",
     "mysql2": "^3.16.1",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "uuid": "^13.0.0",
     "wait-port": "^1.1.0"
   },
   "devDependencies": {
     "jest": "^30.5.2",
     "nodemon": "^3.1.9"
-  },
-  "overrides": {
-    "tar": "7.5.4",
-    "glob": "11.1.0",
-    "semver": "7.5.2",
-    "cross-spawn": "7.0.5",
-    "braces": "3.0.3",
-    "http-cache-semantics": "4.1.1",
-    "socks": "2.8.1"
   }
 }
