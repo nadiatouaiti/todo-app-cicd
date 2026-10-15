@@ -48,17 +48,10 @@ jobs:
       - name: Pull image
         run: docker pull "$IMAGE"
 
-      - name: Replace container
-        run: |
-          docker rm -f todo || true
-          docker run -d --name todo \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            -v todo-db:/etc/todos \
-            "$IMAGE"
-
-      - name: Wait for container to be healthy
-        run: ./scripts/wait-healthy.sh todo
+      - name: Deploy requested image
+        uses: ./.github/actions/deploy-container
+        with:
+          image: ${{ env.IMAGE }}
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
