@@ -1,0 +1,34 @@
+name: Deploy container
+description: Replace the app container with a given image and wait until it is healthy
+
+inputs:
+  image:
+    description: Full image reference (registry/name:tag)
+    required: true
+  container:
+    description: Name of the container to replace
+    required: false
+    default: todo
+
+runs:
+  using: composite
+  steps:
+    - name: Replace container
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        CONTAINER: ${{ inputs.container }}
+      run: |
+        echo "::notice::Running $IMAGE as container '$CONTAINER'"
+        docker rm -f "$CONTAINER" || true
+        docker run -d --name "$CONTAINER" \
+          --restart unless-stopped \
+          -p 3000:3000 \
+          -v todo-db:/etc/todos \
+          "$IMAGE"
+
+    - name: Wait for container to be healthy
+      shell: bash
+      env:
+        CONTAINER: ${{ inputs.container }}
+      run: ./scripts/wait-healthy.sh "$CONTAINER"

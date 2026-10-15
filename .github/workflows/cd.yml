@@ -36,25 +36,17 @@ jobs:
       - name: Pull image
         run: docker pull "$IMAGE"
 
-      - name: Replace container
+      - name: Deploy new image
         id: replace
-        run: |
-          docker rm -f todo || true
-          docker run -d --name todo \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            -v todo-db:/etc/todos \
-            "$IMAGE"
+        uses: ./.github/actions/deploy-container
+        with:
+          image: ${{ env.IMAGE }}
 
-      - name: Wait for container to be healthy
-        env:
-          SIMULATE_FAILURE: ${{ vars.SIMULATE_DEPLOY_FAILURE }}
+      - name: Simulated failure (staging test only)
+        if: vars.SIMULATE_DEPLOY_FAILURE == 'true'
         run: |
-          if [ "$SIMULATE_FAILURE" = "true" ]; then
-            echo "::warning::Simulated deployment failure (SIMULATE_DEPLOY_FAILURE=true)"
-            exit 1
-          fi
-          ./scripts/wait-healthy.sh todo
+          echo "::warning::Simulated deployment failure (SIMULATE_DEPLOY_FAILURE=true)"
+          exit 1
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
@@ -69,16 +61,9 @@ jobs:
           steps.replace.outcome != 'skipped' &&
           env.PREVIOUS_IMAGE != '' &&
           env.PREVIOUS_IMAGE != env.IMAGE
-        run: |
-          echo "::warning::Deployment of $IMAGE failed, rolling back to $PREVIOUS_IMAGE"
-          docker rm -f todo || true
-          docker run -d --name todo \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            -v todo-db:/etc/todos \
-            "$PREVIOUS_IMAGE"
-          ./scripts/wait-healthy.sh todo
-          echo "Rollback OK: $PREVIOUS_IMAGE is running and healthy"
+        uses: ./.github/actions/deploy-container
+        with:
+          image: ${{ env.PREVIOUS_IMAGE }}
 
   deploy-production:
     needs: deploy-staging
@@ -107,18 +92,11 @@ jobs:
       - name: Pull image
         run: docker pull "$IMAGE"
 
-      - name: Replace container
+      - name: Deploy new image
         id: replace
-        run: |
-          docker rm -f todo || true
-          docker run -d --name todo \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            -v todo-db:/etc/todos \
-            "$IMAGE"
-
-      - name: Wait for container to be healthy
-        run: ./scripts/wait-healthy.sh todo
+        uses: ./.github/actions/deploy-container
+        with:
+          image: ${{ env.IMAGE }}
 
       - name: Check from host (port mapping)
         run: curl -fsS localhost:3000/health
@@ -133,13 +111,6 @@ jobs:
           steps.replace.outcome != 'skipped' &&
           env.PREVIOUS_IMAGE != '' &&
           env.PREVIOUS_IMAGE != env.IMAGE
-        run: |
-          echo "::warning::Deployment of $IMAGE failed, rolling back to $PREVIOUS_IMAGE"
-          docker rm -f todo || true
-          docker run -d --name todo \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            -v todo-db:/etc/todos \
-            "$PREVIOUS_IMAGE"
-          ./scripts/wait-healthy.sh todo
-          echo "Rollback OK: $PREVIOUS_IMAGE is running and healthy"
+        uses: ./.github/actions/deploy-container
+        with:
+          image: ${{ env.PREVIOUS_IMAGE }}
